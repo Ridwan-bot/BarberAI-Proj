@@ -23,10 +23,26 @@ export default function AuthPage({ mode = "login" }) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = (fd.get("email") || "").toString().trim();
-    // const password = (fd.get("password") || "").toString(); // not used in demo
-    await login({ email, role }); // ← uses your state/AuthContext
+    const fullNameField = (fd.get("fullName") || "").toString().trim();
 
-    // Go back to where the user was heading (e.g., /book), or to a role-based dashboard
+    // derive a display name if not provided (login flow)
+    const fallbackName =
+      email.includes("@") ? email.split("@")[0] : "User";
+    const name = fullNameField || fallbackName;
+
+    // build the user object we’ll use across the app
+    const user = {
+      id: (crypto?.randomUUID && crypto.randomUUID()) || String(Date.now()),
+      name,
+      email,
+      role, // "barber" | "customer"
+    };
+
+    // Save to context and localStorage so nav/routes can read role immediately
+    await login(user); // ensure your AuthContext accepts a full user object
+    localStorage.setItem("authUser", JSON.stringify(user));
+
+    // Send them where they intended (e.g., /book) or to a role-based dashboard
     const fallback = role === "barber" ? "/dashboard/barber" : "/dashboard/customer";
     const from = location.state?.from?.pathname || fallback;
     navigate(from, { replace: true });
@@ -82,7 +98,7 @@ export default function AuthPage({ mode = "login" }) {
               </span>
               <input
                 type="email"
-                name="email"            /* ← important for FormData */
+                name="email"
                 required
                 autoComplete="email"
                 className="w-full rounded-xl border border-slate-300 pl-10 pr-4 py-3 outline-none bg-white placeholder:text-slate-500 focus:ring-2 focus:ring-brand-gold"
@@ -97,7 +113,7 @@ export default function AuthPage({ mode = "login" }) {
               </span>
               <input
                 type="password"
-                name="password"         /* ← important for FormData */
+                name="password"
                 required
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 className="w-full rounded-xl border border-slate-300 pl-10 pr-4 py-3 outline-none bg-white placeholder:text-slate-500 focus:ring-2 focus:ring-brand-gold"

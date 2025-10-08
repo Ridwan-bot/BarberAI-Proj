@@ -15,9 +15,13 @@ import AuthPage from "./pages/AuthPage";
 import BookingPage from "./pages/BookingPage";
 import DashboardCustomer from "./pages/DashboardCustomer";
 import DashboardBarber from "./pages/DashboardBarber";
+import CustomerAppointments from "./pages/CustomerAppointments";
+import BarberAppointments from "./pages/BarberAppointments";
+import RoleRoute from "./state/RoleRoute";
 
-import { AuthProvider } from "./state/AuthContext";     // <— from state/
-import RequireAuth from "./state/RequireAuth";          // <— from state/
+
+import { AuthProvider } from "./state/AuthContext";
+import RequireAuth from "./state/RequireAuth";
 
 function Landing() {
   return (
@@ -40,6 +44,7 @@ function MainLayout() {
     </div>
   );
 }
+
 function MinimalLayout() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -53,15 +58,18 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Public marketing site */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Landing />} />
         </Route>
 
+        {/* Auth + app shell with slim nav */}
         <Route element={<MinimalLayout />}>
+          {/* Auth pages */}
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/signup" element={<AuthPage mode="signup" />} />
 
-          {/* protected */}
+          {/* Protected app pages */}
           <Route
             path="/book"
             element={
@@ -83,6 +91,25 @@ export default function App() {
             element={
               <RequireAuth>
                 <DashboardBarber />
+              </RequireAuth>
+            }
+          />
+          {/* barber appointments list */}
+          <Route
+            path="/dashboard/barber/appointments"
+            element={
+              <RequireAuth>
+                <BarberAppointments />
+              </RequireAuth>
+            }
+          />
+
+          {/* customer appointments page list */}
+          <Route
+            path="/dashboard/customer/appointments"
+            element={
+              <RequireAuth>
+                <CustomerAppointments />
               </RequireAuth>
             }
           />
