@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles */
+:root { color-scheme: light; }
+html, body, #root { height: 100%; }
+
+body { @apply font-sans antialiased text-slate-100 bg-white; }
+
+.container-xl { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8; }
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-2xl px-6 py-3
+         text-base font-semibold transition shadow;
+}
+.btn-primary { @apply bg-yellow-500 text-slate-900 hover:brightness-95; }
+.btn-ghost   { @apply bg-transparent ring-1 ring-white/40 hover:bg-white/10; }
