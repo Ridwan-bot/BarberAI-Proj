@@ -1,5 +1,8 @@
 // src/pages/DashboardCustomer.jsx
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import Recommendations from "../components/Recommendations";
+import { bestTimeWindow } from "../ai/rules";
 import {
   CalendarDays,
   Clock,
@@ -144,6 +147,8 @@ function Modal({ open, onClose, title, children, footer }) {
 
 /* ---------- Page ---------- */
 export default function DashboardCustomer() {
+  const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = React.useState("Overview");
   const [rescheduleId, setRescheduleId] = React.useState(null);
   const [cancelId, setCancelId] = React.useState(null);
@@ -158,6 +163,22 @@ export default function DashboardCustomer() {
     HISTORY.length === 0
       ? "—"
       : (HISTORY.reduce((s, a) => s + (a.rating || 0), 0) / HISTORY.length).toFixed(1);
+
+  // Profile & history for AI
+  const profile =
+    JSON.parse(localStorage.getItem("profile") || "{}") || { faceShape: "Oval" };
+  if (!profile.faceShape) profile.faceShape = "Oval";
+
+  const historySorted = [...HISTORY].sort((a, b) =>
+    (b.dateISO + b.time).localeCompare(a.dateISO + a.time)
+  );
+  const timeWin = bestTimeWindow(historySorted); // { label, reason }
+
+  // When user clicks a recommended style → prefill service and route to /book
+  function handleBookFromRec(style) {
+    localStorage.setItem("prefillService", style.service);
+    navigate("/book");
+  }
 
   return (
     <section className="container-xl py-8">
@@ -251,28 +272,39 @@ export default function DashboardCustomer() {
           )}
 
           {activeTab === "AI Recommendations" && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-5 bg-white shadow-sm">
-                <div className="font-semibold">Recommended for you</div>
-                <ul className="mt-3 list-disc pl-5 text-slate-700">
-                  <li>Skin Fade every 4–5 weeks based on your history</li>
-                  <li>
-                    Add <span className="font-medium">Hot Towel Shave</span> to
-                    your next booking (+30m)
-                  </li>
-                  <li>Best times: Thu 5–7pm or Sat 10–12</li>
-                </ul>
-                <a href="/book" className="mt-4 inline-flex items-center gap-2 text-amber-600 font-medium">
-                  Book now <ChevronRight className="h-4 w-4" />
-                </a>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {/* Recommendations grid */}
+              <div className="lg:col-span-2">
+                <Recommendations
+                  profile={profile}
+                  history={historySorted}
+                  limit={4}
+                  onBook={handleBookFromRec}
+                />
               </div>
 
+              {/* Side insights card */}
               <div className="rounded-2xl border border-slate-200 p-5 bg-white shadow-sm">
-                <div className="font-semibold">Style Inspiration</div>
-                <p className="mt-2 text-slate-600">
-                  Based on your face shape and ratings, these cuts trend well for
-                  you: Low Fade, Textured Crop, Tight Taper.
-                </p>
+                <div className="font-semibold">Personalized tips</div>
+                <ul className="mt-3 list-disc pl-5 text-slate-700 space-y-1">
+                  <li>
+                    Best times:{" "}
+                    <span className="font-medium">{timeWin.label}</span>{" "}
+                    <span className="text-slate-500">({timeWin.reason})</span>
+                  </li>
+                  <li>
+                    Add <span className="font-medium">Hot Towel Shave</span> to your next booking (+30m)
+                  </li>
+                  <li>
+                    Try a <span className="font-medium">Low Fade</span> with your face shape
+                  </li>
+                </ul>
+                <button
+                  onClick={() => navigate("/book")}
+                  className="mt-4 inline-flex items-center gap-2 font-medium text-amber-600"
+                >
+                  Book now <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
           )}
@@ -287,8 +319,7 @@ export default function DashboardCustomer() {
                   <div>
                     <div className="font-medium">{h.service}</div>
                     <div className="text-sm text-slate-600">
-                      with {h.barber} — {fmtDateTime(h.dateISO, h.time)} •{" "}
-                      {h.durationMin}m
+                      with {h.barber} — {fmtDateTime(h.dateISO, h.time)} • {h.durationMin}m
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -327,7 +358,8 @@ export default function DashboardCustomer() {
               onClick={() => {
                 // TODO: call API; for now just close
                 setRescheduleId(null);
-                setNewDate(""); setNewTime("");
+                setNewDate("");
+                setNewTime("");
               }}
               className="btn btn-primary disabled:opacity-50"
             >
@@ -381,8 +413,7 @@ export default function DashboardCustomer() {
         }
       >
         <p className="text-slate-600">
-          Are you sure you want to cancel this appointment? You can always rebook
-          later.
+          Are you sure you want to cancel this appointment? You can always rebook later.
         </p>
       </Modal>
     </section>

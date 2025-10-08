@@ -1,5 +1,17 @@
 import React from "react";
-import { Calendar, Clock, Scissors, ChevronLeft, Search, Store, Building2, MapPin } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Scissors,
+  ChevronLeft,
+  Search,
+  Store,
+  Building2,
+  MapPin,
+} from "lucide-react";
+
+// ⬅️ NEW: bring in the one-shot “generate & save” function
+import { writeRecommendationsForUser } from "../ai/rules";
 
 /* ---------- SHOPS ---------- */
 const SHOPS = [
@@ -8,7 +20,6 @@ const SHOPS = [
   { id: "eastside",   name: "CrossFades",    address: "618 Church St",      icon: Building2 },
   { id: "university", name: "Dapper Cutz",   address: "419 Ogunmefun Ave",  icon: Store },
 ];
-
 
 /* ---------- SERVICES (expanded) ---------- */
 const SERVICES = [
@@ -80,7 +91,6 @@ function ShopStep({ value, onChange, onNext }) {
       <h2 className="text-2xl font-extrabold">Choose a shop</h2>
       <p className="mt-1 text-slate-600">Pick your preferred location.</p>
 
-      {/* (optional) search bar — keep or remove */}
       <div className="mt-4">
         <div className="relative w-full sm:max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -110,7 +120,7 @@ function ShopStep({ value, onChange, onNext }) {
         ) : (
           filtered.map((s) => {
             const selected = value?.id === s.id;
-            const Icon = s.icon || Store; // fallback if no icon specified
+            const Icon = s.icon || Store;
             return (
               <button
                 key={s.id}
@@ -149,7 +159,6 @@ function ShopStep({ value, onChange, onNext }) {
     </div>
   );
 }
-
 
 function StepHeader({ step }) {
   const steps = ["Shop", "Service", "Barber", "Time", "Details", "Confirm"];
@@ -340,7 +349,6 @@ function BarberStep({ shop, value, onChange, onBack, onNext }) {
   );
 }
 
-
 function TimeStep({ service, valueDate, valueTime, onBack, onNext, onDate, onTime }) {
   const slots = service ? generateSlots(valueDate || todayISO(), service.duration) : [];
   return (
@@ -520,6 +528,64 @@ export default function BookingPage() {
   const [time, setTime]       = React.useState("");
   const [details, setDetails] = React.useState(null);
 
+    React.useEffect(() => {
+    const s = localStorage.getItem("prefillService");
+    if (s) {
+        const found = SERVICES.find((x) => x.name === s);
+        if (found) setService(found);
+        localStorage.removeItem("prefillService");
+    }
+    }, []);
+
+  // ⬅️ NEW: handle final confirm — generate & store recommendations
+  function handleConfirm(d) {
+    setDetails(d);
+
+    try {
+      const auth = JSON.parse(localStorage.getItem("authUser") || "{}");
+      // simple id fallback for demo (works with your current auth mock)
+      const userId = auth.id || auth.email || "demo-user";
+
+      // demo profile (faceShape, likes, history) — these keys are optional
+      const profile = {
+        faceShape: auth.faceShape || "Oval",
+        liked: JSON.parse(localStorage.getItem(`liked:${userId}`) || "[]"),
+        history: JSON.parse(localStorage.getItem(`history:${userId}`) || "[]"),
+      };
+
+      const recentBooking = {
+        shop,
+        service,
+        barber,
+        dateISO,
+        time,
+        name: d.name,
+        email: d.email,
+      };
+
+      // one call does it all: generate + persist “AI recommendations”
+      writeRecommendationsForUser(userId, profile, recentBooking);
+
+      // (optional) push into simple local history for future demos
+      const newHistory = [
+        ...profile.history,
+        {
+          dateISO,
+          time,
+          service: service?.name,
+          duration: service?.duration,
+          barber: barber?.id,
+          shop: shop?.id,
+        },
+      ];
+      localStorage.setItem(`history:${userId}`, JSON.stringify(newHistory));
+    } catch (_) {
+      // swallow demo storage errors
+    }
+
+    setStep(6);
+  }
+
   return (
     <section className="container-xl py-10">
       <StepHeader step={step} />
@@ -567,7 +633,7 @@ export default function BookingPage() {
           dateISO={dateISO}
           time={time}
           onBack={() => setStep(4)}
-          onNext={(d) => { setDetails(d); setStep(6); }}
+          onNext={handleConfirm}
         />
       )}
 
