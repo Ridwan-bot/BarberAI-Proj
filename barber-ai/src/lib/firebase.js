@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+// Defensive Firebase bootstrap: gracefully handles missing SDK/package.
+export let auth = null;
+export let db = null;
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FB_API_KEY,
@@ -11,6 +11,17 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FB_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+(async () => {
+  try {
+    if (!firebaseConfig?.projectId) return; // no env -> skip
+    const appMod = await import(/* @vite-ignore */ "firebase/app");
+    const authMod = await import(/* @vite-ignore */ "firebase/auth");
+    const fsMod = await import(/* @vite-ignore */ "firebase/firestore");
+
+    const app = appMod.initializeApp(firebaseConfig);
+    auth = authMod.getAuth(app);
+    db = fsMod.getFirestore(app);
+  } catch (_) {
+    // SDK not installed or failed: keep nulls and allow fallbacks
+  }
+})();

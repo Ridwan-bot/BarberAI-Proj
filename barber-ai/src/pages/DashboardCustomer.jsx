@@ -1,6 +1,11 @@
 // src/pages/DashboardCustomer.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import FeedbackModal from "../components/FeedbackModal";
+import StarRating from "../components/StarRating";
+import FeedbackForm from "../components/FeedbackForm";
+import { listFeedbackForUser, submitFeedback } from "../lib/feedback";
+import { listHistory } from "../lib/history";
 import Recommendations from "../components/Recommendations";
 import { bestTimeWindow } from "../ai/rules";
 import {
@@ -30,26 +35,7 @@ const UPCOMING = [
   },
 ];
 
-const HISTORY = [
-  {
-    id: "apt-0",
-    service: "Skin Fade",
-    barber: "Kofi D.",
-    dateISO: "2024-12-18",
-    time: "15:00",
-    durationMin: 45,
-    rating: 5,
-  },
-  {
-    id: "apt--1",
-    service: "Beard Trim",
-    barber: "Mike Johnson",
-    dateISO: "2024-11-10",
-    time: "12:30",
-    durationMin: 20,
-    rating: 4,
-  },
-];
+// Replaced static history with dynamic load
 
 function fmtDateTime(dateISO, time) {
   const d = new Date(`${dateISO}T${time}:00`);
@@ -152,24 +138,47 @@ export default function DashboardCustomer() {
   const [activeTab, setActiveTab] = React.useState("Overview");
   const [rescheduleId, setRescheduleId] = React.useState(null);
   const [cancelId, setCancelId] = React.useState(null);
+  const [history, setHistory] = React.useState([]);
+  const [feedback, setFeedback] = React.useState([]);
+  const [pendingRate, setPendingRate] = React.useState(null); // booking to rate
 
   // simple reschedule controls
   const [newDate, setNewDate] = React.useState("");
   const [newTime, setNewTime] = React.useState("");
 
   const upcomingCount = UPCOMING.length;
-  const totalVisits = HISTORY.length + upcomingCount;
-  const avgRating =
-    HISTORY.length === 0
-      ? "—"
-      : (HISTORY.reduce((s, a) => s + (a.rating || 0), 0) / HISTORY.length).toFixed(1);
+  const totalVisits = history.length + upcomingCount;
+  const avgRating = history.length
+    ? (history.reduce((s, a) => s + (a.rating || 0), 0) / history.length).toFixed(1)
+    : "—";
 
   // Profile & history for AI
-  const profile =
-    JSON.parse(localStorage.getItem("profile") || "{}") || { faceShape: "Oval" };
-  if (!profile.faceShape) profile.faceShape = "Oval";
+  const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
+  const userId = authUser.id || authUser.email || "demo-user";
+  const legacyProfile = JSON.parse(localStorage.getItem("profile") || "{}") || {};
+  const storedProfile = JSON.parse(localStorage.getItem(`profile:${userId}`) || "{}") || {};
+  const profile = { faceShape: "Oval", ...legacyProfile, ...storedProfile };
 
-  const historySorted = [...HISTORY].sort((a, b) =>
+  // derive preferences from feedback (simple rule-based weights)
+  const prefWeights = React.useMemo(() => {
+    const weights = {};
+    feedback.forEach((f) => {
+      const s = `${f.service || ""}`.toLowerCase();
+      const apply = (k, delta) => {
+        weights[k] = (weights[k] || 0) + delta;
+      };
+      const delta = f.rating >= 4 ? 1 : f.rating <= 2 ? -1 : 0;
+      if (/fade/.test(s)) apply("fade", delta);
+      if (/taper/.test(s)) apply("taper", delta);
+      if (/beard/.test(s)) apply("beard", delta);
+      if (/buzz/.test(s)) apply("buzz", delta);
+      if (/classic|side/.test(s)) apply("classic", delta);
+      if (/crop/.test(s)) apply("crop", delta);
+    });
+    return weights;
+  }, [feedback]);
+
+  const historySorted = [...history].sort((a, b) =>
     (b.dateISO + b.time).localeCompare(a.dateISO + a.time)
   );
   const timeWin = bestTimeWindow(historySorted); // { label, reason }
@@ -179,6 +188,36 @@ export default function DashboardCustomer() {
     localStorage.setItem("prefillService", style.service);
     navigate("/book");
   }
+
+  // Load history + feedback + open modal if pending
+  React.useEffect(() => {
+    const auth = JSON.parse(localStorage.getItem("authUser") || "{}");
+    const userId = auth.id || auth.email || "demo-user";
+    (async () => {
+      const [h, f] = await Promise.all([listHistory(userId), listFeedbackForUser(userId)]);
+      let seed = h;
+      if (!seed || seed.length === 0) {
+        seed = [
+          { id: 'his-1', service: 'Skin Fade', duration: 45, barber: 'ayo', barberName: 'Ayo Lawal', shop: 'downtown', dateISO: '2025-01-05', time: '14:00', status: 'completed', rating: 5 },
+          { id: 'his-2', service: 'Haircut & Styling', duration: 45, barber: 'maria', barberName: 'Maria S.', shop: 'downtown', dateISO: '2025-01-02', time: '11:30', status: 'completed', rating: 4 },
+          { id: 'his-3', service: 'Cut + Beard', duration: 60, barber: 'kofi', barberName: 'Kofi D.', shop: 'midtown', dateISO: '2024-12-20', time: '16:15', status: 'completed' },
+          { id: 'his-4', service: 'Haircut & Styling', duration: 45, barber: 'remy', barberName: 'Remy P.', shop: 'eastside', dateISO: '2024-12-05', time: '10:45', status: 'completed' },
+          { id: 'his-5', service: 'Skin Fade', duration: 45, barber: 'diego', barberName: 'Diego R.', shop: 'university', dateISO: '2024-11-10', time: '09:30', status: 'completed', rating: 5 },
+          { id: 'his-6', service: 'Haircut & Styling', duration: 45, barber: 'malik', barberName: 'Malik T.', shop: 'university', dateISO: '2024-10-18', time: '13:00', status: 'completed' },
+        ];
+        try { localStorage.setItem(`history:${userId}`, JSON.stringify(seed)); } catch (_) {}
+      }
+      setHistory(seed);
+      setFeedback(f);
+      const pendingId = localStorage.getItem(`pendingFeedback:${userId}`);
+      if (pendingId) {
+        const rec = seed.find((x) => x.id === pendingId) || null;
+        if (rec) setPendingRate(rec);
+      }
+    })();
+  }, []);
+
+  const enrichedProfile = { ...profile, prefWeights };
 
   return (
     <section className="container-xl py-8">
@@ -218,10 +257,10 @@ export default function DashboardCustomer() {
 
               {UPCOMING.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 p-6 text-slate-500">
-                  You have no upcoming appointments.{" "}
-                  <a href="/book" className="text-amber-600 underline">
+                  You have no upcoming appointments.{' '}
+                  <button onClick={() => navigate('/book')} className="text-amber-600 underline">
                     Book your next visit →
-                  </a>
+                  </button>
                 </div>
               ) : (
                 UPCOMING.map((a) => (
@@ -276,9 +315,9 @@ export default function DashboardCustomer() {
               {/* Recommendations grid */}
               <div className="lg:col-span-2">
                 <Recommendations
-                  profile={profile}
+                  profile={enrichedProfile}
                   history={historySorted}
-                  limit={4}
+                  limit={6}
                   onBook={handleBookFromRec}
                 />
               </div>
@@ -293,10 +332,27 @@ export default function DashboardCustomer() {
                     <span className="text-slate-500">({timeWin.reason})</span>
                   </li>
                   <li>
-                    Add <span className="font-medium">Hot Towel Shave</span> to your next booking (+30m)
+                    Face shape: <span className="font-medium">{profile.faceShape}</span>
                   </li>
                   <li>
                     Try a <span className="font-medium">Low Fade</span> with your face shape
+                  </li>
+                  {Object.keys(prefWeights || {}).length > 0 && (
+                    <li>
+                      Based on ratings, you favor{' '}
+                      <span className="font-medium">
+                        {Object.entries(prefWeights)
+                          .filter(([,v]) => v > 0)
+                          .sort((a,b) => b[1]-a[1])
+                          .slice(0,2)
+                          .map(([k]) => k)
+                          .join(', ') || 'classic'}
+                      </span>
+                      {' '}styles.
+                    </li>
+                  )}
+                  <li>
+                    Not sure of your face shape? Open the AI quiz in the Recommendations tab.
                   </li>
                 </ul>
                 <button
@@ -311,33 +367,53 @@ export default function DashboardCustomer() {
 
           {activeTab === "History" && (
             <div className="space-y-3">
-              {HISTORY.map((h) => (
-                <div
-                  key={h.id}
-                  className="rounded-xl border border-slate-200 p-4 bg-white flex items-center justify-between"
-                >
-                  <div>
-                    <div className="font-medium">{h.service}</div>
-                    <div className="text-sm text-slate-600">
-                      with {h.barber} — {fmtDateTime(h.dateISO, h.time)} • {h.durationMin}m
+              {historySorted.map((h) => {
+                const needsForm = !h.rating && (h.status === 'completed' || !h.status);
+                return (
+                  <div key={h.id} className="space-y-2">
+                    <div className="rounded-xl border border-slate-200 p-4 bg-white flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{h.service}</div>
+                        <div className="text-sm text-slate-600">
+                          with {h.barberName || h.barber} — {fmtDateTime(h.dateISO, h.time)} • {h.duration || h.durationMin}m
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {!needsForm ? (
+                          <div className="flex items-center gap-2">
+                            <StarRating value={h.rating || 0} onChange={() => setPendingRate(h)} size={18} />
+                            <button onClick={() => setPendingRate(h)} className="btn btn-ghost">Update</button>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500">Not rated yet</div>
+                        )}
+                        <button
+                          onClick={() => { try { localStorage.setItem('prefillService', h.service); } catch (_) {} navigate('/book'); }}
+                          className="btn btn-ghost"
+                        >
+                          Rebook
+                        </button>
+                      </div>
                     </div>
+                    {needsForm && (
+                      <FeedbackForm
+                        appointment={{ ...h, customerId: userId }}
+                        onSubmitted={(_, r) => {
+                          const newH = history.map(x => x.id === h.id ? { ...x, rating: r } : x);
+                          setHistory(newH);
+                          localStorage.setItem(`history:${userId}`, JSON.stringify(newH));
+                        }}
+                      />
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-4 w-4 ${
-                            i < (h.rating || 0) ? "text-amber-500" : "text-slate-300"
-                          }`}
-                          fill={i < (h.rating || 0) ? "currentColor" : "none"}
-                        />
-                      ))}
-                    </div>
-                    <a href="/book" className="btn btn-ghost">Book again</a>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+              <button
+                onClick={() => navigate('/book')}
+                className="fixed bottom-6 right-6 inline-flex items-center gap-2 rounded-full bg-amber-500 text-slate-900 font-semibold px-4 py-3 shadow-lg hover:brightness-95"
+              >
+                Rebook a service
+              </button>
             </div>
           )}
         </SectionCard>
@@ -415,7 +491,47 @@ export default function DashboardCustomer() {
         <p className="text-slate-600">
           Are you sure you want to cancel this appointment? You can always rebook later.
         </p>
-      </Modal>
+  </Modal>
+
+      {/* Feedback modal */}
+      <FeedbackModal
+        open={!!pendingRate}
+        onClose={() => setPendingRate(null)}
+        context={{
+          service: pendingRate?.service,
+          barberName: pendingRate?.barberName || pendingRate?.barber,
+        }}
+        onSubmit={async ({ rating, comment }) => {
+          try {
+            const auth = JSON.parse(localStorage.getItem("authUser") || "{}");
+            const userId = auth.id || auth.email || "demo-user";
+            const payload = await submitFeedback({
+              userId,
+              bookingId: pendingRate?.id,
+              service: pendingRate?.service,
+              barberId: pendingRate?.barber,
+              rating,
+              comment,
+              dateISO: pendingRate?.dateISO,
+            });
+
+            // update local history rating
+            const newHistory = history.map((x) =>
+              x.id === pendingRate?.id ? { ...x, rating } : x
+            );
+            setHistory(newHistory);
+            localStorage.setItem(`history:${userId}`, JSON.stringify(newHistory));
+
+            // refresh feedback list
+            const f = await listFeedbackForUser(userId);
+            setFeedback(f);
+
+            // clear pending flag
+            localStorage.removeItem(`pendingFeedback:${userId}`);
+          } catch (_) {}
+          setPendingRate(null);
+        }}
+      />
     </section>
   );
 }

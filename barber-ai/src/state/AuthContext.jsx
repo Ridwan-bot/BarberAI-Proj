@@ -8,13 +8,13 @@ export function AuthProvider({ children }) {
 
   // restore on refresh
   useEffect(() => {
-    const saved = localStorage.getItem("auth_user");
+    const saved = localStorage.getItem("authUser");
     if (saved) setUser(JSON.parse(saved));
   }, []);
   // persist on change
   useEffect(() => {
-    if (user) localStorage.setItem("auth_user", JSON.stringify(user));
-    else localStorage.removeItem("auth_user");
+    if (user) localStorage.setItem("authUser", JSON.stringify(user));
+    else localStorage.removeItem("authUser");
   }, [user]);
 
   async function login({ email, role }) {

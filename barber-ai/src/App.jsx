@@ -2,7 +2,7 @@
 import React from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
+import Navbar from "./components/NavBar";
 import OtherNav from "./components/OtherNav";
 
 import Hero from "./sections/Hero";
@@ -20,7 +20,6 @@ import BarberAppointments from "./pages/BarberAppointments";
 import RoleRoute from "./state/RoleRoute";
 
 
-import { AuthProvider } from "./state/AuthContext";
 import RequireAuth from "./state/RequireAuth";
 
 function Landing() {
@@ -56,65 +55,63 @@ function MinimalLayout() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        {/* Public marketing site */}
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Landing />} />
-        </Route>
+    <Routes>
+      {/* Public marketing site */}
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<Landing />} />
+      </Route>
 
-        {/* Auth + app shell with slim nav */}
-        <Route element={<MinimalLayout />}>
-          {/* Auth pages */}
-          <Route path="/login" element={<AuthPage mode="login" />} />
-          <Route path="/signup" element={<AuthPage mode="signup" />} />
+      {/* Auth + app shell with slim nav */}
+      <Route element={<MinimalLayout />}>
+        {/* Auth pages */}
+        <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/signup" element={<AuthPage mode="signup" />} />
 
-          {/* Protected app pages */}
-          <Route
-            path="/book"
-            element={
-              <RequireAuth>
-                <BookingPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/customer"
-            element={
-              <RequireAuth>
-                <DashboardCustomer />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/dashboard/barber"
-            element={
-              <RequireAuth>
-                <DashboardBarber />
-              </RequireAuth>
-            }
-          />
-          {/* barber appointments list */}
-          <Route
-            path="/dashboard/barber/appointments"
-            element={
-              <RequireAuth>
-                <BarberAppointments />
-              </RequireAuth>
-            }
-          />
+        {/* Protected app pages */}
+        <Route
+          path="/book"
+          element={
+            <RequireAuth>
+              <BookingPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard/customer"
+          element={
+            <RequireAuth>
+              <DashboardCustomer />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard/barber"
+          element={
+            <RequireAuth>
+              <DashboardBarber />
+            </RequireAuth>
+          }
+        />
+        {/* barber appointments list */}
+        <Route
+          path="/dashboard/barber/appointments"
+          element={
+            <RequireAuth>
+              <BarberAppointments />
+            </RequireAuth>
+          }
+        />
 
-          {/* customer appointments page list */}
-          <Route
-            path="/dashboard/customer/appointments"
-            element={
-              <RequireAuth>
-                <CustomerAppointments />
-              </RequireAuth>
-            }
-          />
-        </Route>
-      </Routes>
-    </AuthProvider>
+        {/* customer appointments page list */}
+        <Route
+          path="/dashboard/customer/appointments"
+          element={
+            <RequireAuth>
+              <CustomerAppointments />
+            </RequireAuth>
+          }
+        />
+      </Route>
+    </Routes>
   );
 }

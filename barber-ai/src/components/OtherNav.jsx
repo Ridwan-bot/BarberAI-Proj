@@ -35,7 +35,7 @@ export default function OtherNav() {
   if (isAuthRoute) {
     return (
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#121F2F]/95 backdrop-blur">
-        <div className="container-xl h-16 flex items-center justify-between">
+        <div className="w-full h-16 flex items-center justify-between px-10">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-amber-500 text-2xl">✂</span>
             <span className="text-white font-semibold text-lg">BarberAI</span>
@@ -76,10 +76,10 @@ export default function OtherNav() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#121F2F]/95 backdrop-blur">
-      <div className="container-xl h-16 flex items-center justify-between">
+      <div className="w-full h-16 flex items-center justify-between px-10">
         <Link to="/" className="flex items-center gap-2">
           <span className="text-amber-500 text-2xl">✂</span>
-          <span className="text-white font-semibold text-lg">BarberAI</span>
+          <span className="text-white hover:text-black font-semibold text-lg">BarberAI</span>
         </Link>
 
         <nav className="flex items-center gap-1">

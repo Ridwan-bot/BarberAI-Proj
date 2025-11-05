@@ -23,6 +23,7 @@ const SHOPS = [
 
 /* ---------- SERVICES (expanded) ---------- */
 const SERVICES = [
+  { id: "haircutstyle", name: "Haircut & Styling", duration: 45, price: 32, desc: "Scissor/clipper cut + finish." },
   { id: "fade",        name: "Skin Fade",        duration: 45, price: 35, desc: "Clean fade with line-up." },
   { id: "beard",       name: "Beard Trim",       duration: 20, price: 15, desc: "Beard shape + finish." },
   { id: "cut+beard",   name: "Cut + Beard",      duration: 60, price: 45, desc: "Full package." },
@@ -553,7 +554,9 @@ export default function BookingPage() {
         history: JSON.parse(localStorage.getItem(`history:${userId}`) || "[]"),
       };
 
+      const bookingId = `bk_${Date.now()}`;
       const recentBooking = {
+        id: bookingId,
         shop,
         service,
         barber,
@@ -567,18 +570,22 @@ export default function BookingPage() {
       writeRecommendationsForUser(userId, profile, recentBooking);
 
       // (optional) push into simple local history for future demos
-      const newHistory = [
-        ...profile.history,
-        {
-          dateISO,
-          time,
-          service: service?.name,
-          duration: service?.duration,
-          barber: barber?.id,
-          shop: shop?.id,
-        },
-      ];
+      const newItem = {
+        id: bookingId,
+        dateISO,
+        time,
+        service: service?.name,
+        duration: service?.duration,
+        barber: barber?.id,
+        barberName: barber?.name,
+        shop: shop?.id,
+        status: "completed", // demo: mark completed immediately
+      };
+      const newHistory = [newItem, ...profile.history];
       localStorage.setItem(`history:${userId}`, JSON.stringify(newHistory));
+
+      // prompt feedback on next dashboard visit
+      localStorage.setItem(`pendingFeedback:${userId}`, bookingId);
     } catch (_) {
       // swallow demo storage errors
     }
